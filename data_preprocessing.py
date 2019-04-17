@@ -1,115 +1,116 @@
 import numpy as np
-from aflow import *
+import matplotlib.pyplot as plt
+import os
 
 
-def lattice_constant():
-    pass
+def split_raw_data():
+    save_fp = "F:\WORK\AFLOW\data/train/"
+    file_path = "F:\WORK\AFLOW\data\compounds&labels/"
+    compounds_name = "batch_compounds"
+    labels_name = "batch_labels"
+    total_number = 113
+    train_data = np.load(file_path + compounds_name + str(1) + ".npy")  # 初始化
+    labels_data = np.load(file_path + labels_name + str(1) + ".npy")  # 初始化
+    for index in range(2, total_number + 1):  # 上界不取
+        compounds = np.load(file_path + compounds_name + str(index) + ".npy")
+        labels = np.load(file_path + labels_name + str(index) + ".npy")
+        train_data = np.append(train_data, compounds, axis=0)
+        labels_data = np.append(labels_data, labels, axis=0)
+    np.save(save_fp + "train_data.npy", train_data)
+    np.save(save_fp + "labels_data.npy", labels_data)
 
 
-def find_min_nonzero(array):
-    nonzero_array = array[np.nonzero(array)]
-    min_value = nonzero_array[np.argmin(nonzero_array)]
-    index = list(array).index(min_value)
-    return index
+def ls_onehot_encode():
+    save_fp = "F:\WORK\AFLOW\data/train/"
+    train_data_file = "F:\WORK\AFLOW\data\compounds&labels/train_data.npy"
+    train_data = np.load(train_data_file)
+    lattice_system_ = []
+    l1 = l2 = l3 = l4 = l5 = l6 = l7 = 0
+    for i in train_data:
+        lattice_system = i[-2]
+        if lattice_system == "triclinic\n":  # 三斜晶系
+            lattice_system_.append([1, 0, 0, 0, 0, 0, 0])
+            l1 = l1 + 1
+        if lattice_system == 'monoclinic\n':  # 单斜晶系
+            lattice_system_.append([0, 1, 0, 0, 0, 0, 0])
+            l2 = l2 + 1
+        if lattice_system == 'orthorhombic\n':  # 正交晶系
+            lattice_system_.append([0, 0, 1, 0, 0, 0, 0])
+            l3 = l3 + 1
+        if lattice_system == 'tetragonal\n':  # 四方晶系
+            lattice_system_.append([0, 0, 0, 1, 0, 0, 0])
+            l4 = l4 + 1
+        if lattice_system == 'rhombohedral\n':  # 三角（三方）晶系
+            lattice_system_.append([0, 0, 0, 0, 1, 0, 0])
+            l5 = l5 + 1
+        if lattice_system == 'hexagonal\n':  # 六方晶系
+            lattice_system_.append([0, 0, 0, 0, 0, 1, 0])
+            l6 = l6 + 1
+        if lattice_system == 'cubic\n':  # 立方晶系
+            lattice_system_.append([0, 0, 0, 0, 0, 0, 1])
+            l7 = l7 + 1
+    ls_statistics = [l1, l2, l3, l4, l5, l6, l7]
+    np.save(save_fp + "lattice_system.npy", lattice_system_)
+    return ls_statistics
 
 
-def expand_cell(position_frac, a, b, c, n_a, n_b, n_c):
-    N = position_frac.shape[0]  # number of atoms
-    # expand the unit cell. n_a,n_b and n_c represent the number of repetitions along a,b,c axis.
-    position_frac[:, 0] = (position_frac[:, 0] + (n_a - 1) * np.ones(N)) * a
-    position_frac[:, 1] = (position_frac[:, 1] + (n_b - 1) * np.ones(N)) * b
-    position_frac[:, 2] = (position_frac[:, 2] + (n_c - 1) * np.ones(N)) * c
-    return position_frac
+def plot_ls_statistics():
+    ls_statistics = [2, 41, 935, 985, 2, 1081, 2563]
+    N = 7
+    index = np.arange(1, N + 1)
+    fig, ax = plt.subplots()
+    rects = ax.bar(index, height=ls_statistics, color='blue')
+    ax.set_xticks(index)
+    ax.set_xticklabels(['triclinic', 'monoclinic', 'orthorhombic', 'tetragonal', 'rhombohedral',
+                        'hexagonal', 'cuibic'])
+    plt.setp(ax.get_xticklabels(), rotation=20)
+    plt.xticks(fontproperties='Times New Roman', size=12)
+    plt.yticks(fontproperties='Times New Roman', size=12)
+    plt.ylabel('Count', fontdict={'family': 'Times New Roman', 'size': 12})
+    # plt.xlabel('Lattice System',fontdict={'family':'Times New Roman','size':12})
+    for a, b in zip(index, ls_statistics):
+        plt.text(a, b + 0.05, '%.0f' % b, ha='center', va='bottom', fontsize=9, fontproperties="Times New Roman")
+    plt.savefig('F:\WORK\AFLOW\data/fig/ls_stastics.png', dpi=300)
+    plt.show()
 
 
-def find_min_dis(array_x, array_y):
-    n_equivalent = array_x.shape[0]
-    min_ = []
-    for i in range(n_equivalent):
-        array_x_i = np.ones((n_equivalent, 1)) * array_x[i]
-        dis = np.sqrt(np.sum((array_x_i - array_y) ** 2, axis=1))
-        min_dis = dis[find_min_nonzero(dis)]
-        min_.append(min_dis)
-    min = np.array(min_).min()
-    return min
+class nspeices_statistics:
+    def __init__(self):
+        self.nspecies = []
 
+    def n_statistics(self):
+        train_data_file = "F:\WORK\AFLOW\data/train/train_data.npy"
+        train_data = np.load(train_data_file)
+        n1 = n2 = n3 = n4 = n5 = 0
+        for i in train_data:
+            n = i[-3]
+            if n == '1':
+                n1 = n1 + 1
+            elif n == '2':
+                n2 = n2 + 1
+            elif n == '3':
+                n3 = n3 + 1
+            elif n == '4':
+                n4 = n4 + 1
+            else:
+                n5 = n5 + 1
+        self.nspecies = [n1, n2, n3, n4, n5]
 
-def get_dis_adj_matrix(position_frac, a, b, c):
-    N = position_frac.shape[0]  # number of atoms
-    # expand the unit cell into 2*2*2 taking into account the periodicity along three axes.
-    p1 = expand_cell(position_frac, a, b, c, 1, 1, 1)
-    p2 = expand_cell(position_frac, a, b, c, 2, 1, 1)
-    p3 = expand_cell(position_frac, a, b, c, 1, 2, 1)
-    p4 = expand_cell(position_frac, a, b, c, 1, 1, 2)
-    p5 = expand_cell(position_frac, a, b, c, 2, 2, 1)
-    p6 = expand_cell(position_frac, a, b, c, 2, 1, 2)
-    p7 = expand_cell(position_frac, a, b, c, 1, 2, 2)
-    p8 = expand_cell(position_frac, a, b, c, 2, 2, 2)
+    def plot_nspecies(self):
+        N = 5
+        index = np.arange(1, N + 1)
+        fig, ax = plt.subplots()
+        rects = ax.bar(index, height=self.nspecies, color='blue')
+        ax.set_xticks(index)
+        ax.set_xticklabels(['singular', 'binary', 'ternary', 'quaternary', '$\geq5$'])
+        plt.setp(ax.get_xticklabels(), rotation=20)
+        plt.xticks(fontproperties='Times New Roman', size=12)
+        plt.yticks(fontproperties='Times New Roman', size=12)
+        plt.ylabel('Count', fontdict={'family': 'Times New Roman', 'size': 12})
+        # plt.xlabel('Lattice System',fontdict={'family':'Times New Roman','size':12})
+        for a, b in zip(index, self.nspecies):
+            plt.text(a, b + 0.05, '%.0f' % b, ha='center', va='bottom', fontsize=9, fontproperties="Times New Roman")
+        plt.savefig('F:\WORK\AFLOW\data/fig/nspecies_stastics.png', dpi=300)
+        plt.show()
 
-    # constructing the distance matrix and adjacency matrix
-    dis_matrix = np.zeros((N, N))
-    adj_matrix = np.zeros((N, N))
-    for i in range(0, N):
-        if i < N - 1:  # if i=N-1,the element of (N,N
-            for j in range(i + 1, N):
-                array_x = np.vstack((p1[i], p2[i], p3[i], p4[i], p5[i], p6[i], p7[i], p8[i]))
-                array_y = np.vstack((p1[j], p2[j], p3[j], p4[j], p5[j], p6[j], p7[j], p8[j]))
-                dis_matrix[i, j] = find_min_dis(array_x, array_y)
-            inx = find_min_nonzero(dis_matrix[i])
-            adj_matrix[i, inx] = 1
-    dis_matrix = dis_matrix.T + dis_matrix
-    adj_matrix = adj_matrix.T + adj_matrix
-    return dis_matrix, adj_matrix
-
-
-def prepocess_pos_frac(position_frac, a, b, c):
-    dis_matrix, adj_matrix = get_dis_adj_matrix(position_frac, a, b, c)
-    # N: number of atoms in unit cell
-    N = dis_matrix.shape[0]
-    # element-wise product
-    dis_matrix = dis_matrix + np.diag(np.ones(N))
-np.multiply(adj_matrix,1/dis_matrix**2)
-
-
-
-def get_dis_adj_matrix_error_edition(position_frac, a, b, c):
-    N = position_frac.shape[0]  # number of atoms
-    # coordinate transformation
-    position_frac[:, 0] = position_frac[:, 0] * a
-    position_frac[:, 1] = position_frac[:, 1] * b
-    position_frac[:, 2] = position_frac[:, 2] * c
-    # initializing the distance matrix
-    position_1 = np.ones((N, 1)) * position_frac[0]
-    distance_square_1 = np.sum((position_1 - position_frac) ** 2, axis=1)
-    distance_1 = np.sqrt(distance_square_1)
-    dis_matrix = distance_1
-    # initializing the adjacency matrix
-    adj_matrix = np.zeros((N))
-    inx_1 = find_min_nonzero(distance_square_1)
-    adj_matrix[inx_1] = 1
-    # constructing the distance matrix and adjacency matrix
-    for i in range(1, N):
-        i_position = np.ones((N, 1)) * position_frac[i]
-        distance_square = np.sum((i_position - position_frac) ** 2, axis=1)
-        distance = np.sqrt(distance_square)
-        dis_matrix = np.vstack((dis_matrix, distance))
-        # constructing the  adjacency matrix
-        inx = find_min_nonzero(distance)
-        adj[inx] = 1
-        adj_matrix = np.vstack((adj_matrix, adj))
-    return dis_matrix, adj_matrix
-
-
-file_auid = "/Users/xinming/Documents/aflow/tc_data/auid.npy"
-auid = np.load(file_auid)
-id = auid[3]
-result = search().filter(K.auid == id)
-for entry in result:
-    ss = entry.positions_fractional
-    print(entry.positions_fractional)
-dis, adj = get_dis_adj_matrix(ss, 1, 1, 1)
-print(dis)
-print(adj)
-print(dis.shape)
-print(adj.shape)
-print(adj[3])
+def  preprocess_train_data():

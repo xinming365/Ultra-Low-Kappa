@@ -118,6 +118,9 @@ result = search().filter(K.auid == id)
 for entry in result:
     ss = entry.positions_fractional
     print(entry.positions_fractional)
+file_path = "F:\WORK\AFLOW\data//train/positions_fractional.npy"
+pf = np.load(file_path)
+ss = pf[3]
 dis, adj = get_dis_adj_matrix(ss, 1, 1, 1)
 print(dis)
 print(adj)

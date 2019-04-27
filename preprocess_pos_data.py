@@ -1,9 +1,17 @@
 import numpy as np
 from aflow import *
-
-
-def lattice_constant():
-    pass
+import os
+import Gen_atom
+data_path = './data'
+train_data = np.load(os.path.join(data_path,'train_data.npy'))
+atom = Gen_atom.atom("Fe")
+def lattice_constant(train_data, index):
+    # Returns geometrical data describing the unit cell in the usual a,b,c,alpha,beta,gamma notation.
+    material_i = train_data[index]
+    a= material_i[3]
+    b= material_i[4]
+    c= material_i[5]
+    retrun a, b, c
 
 
 def find_min_nonzero(array):
@@ -61,15 +69,18 @@ def get_dis_adj_matrix(position_frac, a, b, c):
     adj_matrix = adj_matrix.T + adj_matrix
     return dis_matrix, adj_matrix
 
+def get_atom_matrix
 
 def prepocess_pos_frac(position_frac, a, b, c):
     dis_matrix, adj_matrix = get_dis_adj_matrix(position_frac, a, b, c)
     # N: number of atoms in unit cell
     N = dis_matrix.shape[0]
-    # element-wise product
+    # the elements along the diagonal of the dis_matrix is zero.
     dis_matrix = dis_matrix + np.diag(np.ones(N))
-np.multiply(adj_matrix,1/dis_matrix**2)
-
+    # element-wise product
+    M = np.multiply(adj_matrix, 1 / dis_matrix ** 2)
+    pos_discriptor = np.sum(M)
+    return pos_discriptor
 
 
 def get_dis_adj_matrix_error_edition(position_frac, a, b, c):

@@ -4,20 +4,22 @@ import os
 
 
 def split_raw_data():
+    # merge the batch_data downloaded from the AFLOW dataset
     save_fp = "F:\WORK\AFLOW\data/train/"
-    file_path = "F:\WORK\AFLOW\data\compounds&labels/"
-    compounds_name = "batch_compounds"
-    labels_name = "batch_labels"
-    total_number = 113
+    file_path = "F:\WORK\AFLOW\data/"
+    compounds_name = "batch_forces"
+    labels_name = "batch_pf"
+    total_number = 98
     train_data = np.load(file_path + compounds_name + str(1) + ".npy")  # 初始化
     labels_data = np.load(file_path + labels_name + str(1) + ".npy")  # 初始化
     for index in range(2, total_number + 1):  # 上界不取
+        print(index)
         compounds = np.load(file_path + compounds_name + str(index) + ".npy")
         labels = np.load(file_path + labels_name + str(index) + ".npy")
         train_data = np.append(train_data, compounds, axis=0)
         labels_data = np.append(labels_data, labels, axis=0)
-    np.save(save_fp + "train_data.npy", train_data)
-    np.save(save_fp + "labels_data.npy", labels_data)
+    np.save(save_fp + "forces.npy", train_data)
+    np.save(save_fp + "positions_fractional.npy", labels_data)
 
 
 def ls_onehot_encode():

@@ -2,16 +2,7 @@ import numpy as np
 from aflow import *
 import os
 import Gen_atom
-data_path = './data'
-train_data = np.load(os.path.join(data_path,'train_data.npy'))
-atom = Gen_atom.atom("Fe")
-def lattice_constant(train_data, index):
-    # Returns geometrical data describing the unit cell in the usual a,b,c,alpha,beta,gamma notation.
-    material_i = train_data[index]
-    a= material_i[3]
-    b= material_i[4]
-    c= material_i[5]
-    retrun a, b, c
+import re
 
 
 def find_min_nonzero(array):
@@ -58,7 +49,7 @@ def get_dis_adj_matrix(position_frac, a, b, c):
     dis_matrix = np.zeros((N, N))
     adj_matrix = np.zeros((N, N))
     for i in range(0, N):
-        if i < N - 1:  # if i=N-1,the element of (N,N
+        if i < N - 1:  # if i=N-1,the element of (N,N)
             for j in range(i + 1, N):
                 array_x = np.vstack((p1[i], p2[i], p3[i], p4[i], p5[i], p6[i], p7[i], p8[i]))
                 array_y = np.vstack((p1[j], p2[j], p3[j], p4[j], p5[j], p6[j], p7[j], p8[j]))
@@ -69,18 +60,67 @@ def get_dis_adj_matrix(position_frac, a, b, c):
     adj_matrix = adj_matrix.T + adj_matrix
     return dis_matrix, adj_matrix
 
-def get_atom_matrix
 
-def prepocess_pos_frac(position_frac, a, b, c):
+def get_atom_matrix(formula):
+    # the input parameter is the chemical formula of materials , like "Ag4O2".
+    # the data type of the input parameter is string.
+    element = re.findall(r'[A-Za-z]+', formula)
+    element_number = re.findall(r'(\d+)', formula)
+    # N : number of atoms in unit cell
+    N = np.sum(np.array([int(i) for i in element_number]))
+    num_0 = int(element_number[0])
+    ele_0 = element[0]
+    atom_0 = Gen_atom.atom(ele_0)
+    electronNegativity_0 = atom_0.get_electronNegativity()
+    vec = np.ones((num_0,)) * electronNegativity_0
+    # if there are more elements, we should concatenate these properties.
+    if np.shape(element)[0] > 1:
+        for i, number in enumerate(element_number, start=0):
+            if i > 0:
+                num_i = int(number)
+                ele_i = element[i]
+                atom_i = Gen_atom.atom(ele_i)
+                electronNegativity_i = atom_i.get_electronNegativity()
+                vec_i = np.ones((num_i,)) * electronNegativity_i
+                vec = np.concatenate((vec, vec_i), axis=0)
+    atom_matrix = np.tile(vec, (N, 1))
+    atom_matrix = np.abs(atom_matrix.T - atom_matrix)
+    return atom_matrix
+
+
+def get_discriptor(formula, position_frac, a, b, c):
     dis_matrix, adj_matrix = get_dis_adj_matrix(position_frac, a, b, c)
+    atom_matrix = get_atom_matrix(formula)
     # N: number of atoms in unit cell
     N = dis_matrix.shape[0]
     # the elements along the diagonal of the dis_matrix is zero.
+    # to prevent the reciprocal of 0 becoming infinity, we add one along the diagonal.
     dis_matrix = dis_matrix + np.diag(np.ones(N))
     # element-wise product
     M = np.multiply(adj_matrix, 1 / dis_matrix ** 2)
-    pos_discriptor = np.sum(M)
-    return pos_discriptor
+    T = np.multiply(M, atom_matrix)
+    discriptor = np.sum(T)
+    return discriptor
+
+
+def main():
+    data_path = './data'
+    train_data = np.load(os.path.join(data_path, 'train_data.npy'))
+    ps = np.load(os.path.join(data_path, 'positions_fractional.npy'))
+    for i, material in enumerate(train_data):
+        # get the number of atoms of the material
+        N = material[-4]
+        # get the position_frac of the material. And the shape is (N,3)
+        position_frac = list(ps[i])[0]
+        # get the chemical formula
+        formula = material[2]
+        # Return geometrical data describing the unit cell in the usual a,b,c,alpha,beta,gamma notation.
+        a = float(material[3])
+        b = float(material[4])
+        c = float(material[5])
+        discriptor = get_discriptor(formula, position_frac, a, b, c)
+        print(i)
+        # print(discriptor)
 
 
 def get_dis_adj_matrix_error_edition(position_frac, a, b, c):
@@ -111,19 +151,5 @@ def get_dis_adj_matrix_error_edition(position_frac, a, b, c):
     return dis_matrix, adj_matrix
 
 
-file_auid = "/Users/xinming/Documents/aflow/tc_data/auid.npy"
-auid = np.load(file_auid)
-id = auid[3]
-result = search().filter(K.auid == id)
-for entry in result:
-    ss = entry.positions_fractional
-    print(entry.positions_fractional)
-file_path = "F:\WORK\AFLOW\data//train/positions_fractional.npy"
-pf = np.load(file_path)
-ss = pf[3]
-dis, adj = get_dis_adj_matrix(ss, 1, 1, 1)
-print(dis)
-print(adj)
-print(dis.shape)
-print(adj.shape)
-print(adj[3])
+if __name__ == '__main__':
+    main()

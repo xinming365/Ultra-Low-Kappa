@@ -119,8 +119,20 @@ def main():
         b = float(material[4])
         c = float(material[5])
         discriptor = get_discriptor(formula, position_frac, a, b, c)
-        print(i)
-        # print(discriptor)
+        # print(i)
+        print(discriptor)
+
+def get_atom_related_properties(material):
+    # the data type of the input parameter is string
+
+
+def concatenate_all_discriptor():
+    data_path = './data'
+    train_data = np.load(os.path.join(data_path, 'train_data.npy'))
+    index = [-1,-3,-4,-5,-6,-7] #
+    crp_list = list(train_data[index])
+    crp = [float(i) for i in crp_list]
+    discriptor_vec =
 
 
 def get_dis_adj_matrix_error_edition(position_frac, a, b, c):

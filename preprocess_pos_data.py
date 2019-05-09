@@ -12,6 +12,13 @@ def find_min_nonzero(array):
     return index
 
 
+def decompose_formula(formula):
+    element = re.findall(r'[A-Za-z]+', formula)
+    element_number = re.findall(r'(\d+)', formula)
+    element_number = [float(i) for i in element_number]
+    return element, element_number
+
+
 def expand_cell(position_frac, a, b, c, n_a, n_b, n_c):
     N = position_frac.shape[0]  # number of atoms
     # expand the unit cell. n_a,n_b and n_c represent the number of repetitions along a,b,c axis.
@@ -61,18 +68,18 @@ def get_dis_adj_matrix(position_frac, a, b, c):
     return dis_matrix, adj_matrix
 
 
-def get_atom_matrix(formula):
-    # the input parameter is the chemical formula of materials , like "Ag4O2".
-    # the data type of the input parameter is string.
-    element = re.findall(r'[A-Za-z]+', formula)
-    element_number = re.findall(r'(\d+)', formula)
+def get_atom_matrix(formula, index):
+    # the formula in input parameters is the chemical formula of materials , like "Ag4O2".
+    # the index is the index of property list .
+    element, element_number = decompose_formula(formula)
     # N : number of atoms in unit cell
-    N = np.sum(np.array([int(i) for i in element_number]))
+    N = np.sum(element_number)
     num_0 = int(element_number[0])
     ele_0 = element[0]
     atom_0 = Gen_atom.atom(ele_0)
-    electronNegativity_0 = atom_0.get_electronNegativity()
-    vec = np.ones((num_0,)) * electronNegativity_0
+    all_property = atom_0.get_property()
+    property_0 = all_property[index]
+    vec = np.ones((num_0,)) * property_0
     # if there are more elements, we should concatenate these properties.
     if np.shape(element)[0] > 1:
         for i, number in enumerate(element_number, start=0):
@@ -80,17 +87,18 @@ def get_atom_matrix(formula):
                 num_i = int(number)
                 ele_i = element[i]
                 atom_i = Gen_atom.atom(ele_i)
-                electronNegativity_i = atom_i.get_electronNegativity()
-                vec_i = np.ones((num_i,)) * electronNegativity_i
+                all_property_i = atom_i.get_property()
+                property_i = all_property_i[index]
+                vec_i = np.ones((num_i,)) * property_i
                 vec = np.concatenate((vec, vec_i), axis=0)
     atom_matrix = np.tile(vec, (N, 1))
     atom_matrix = np.abs(atom_matrix.T - atom_matrix)
     return atom_matrix
 
 
-def get_discriptor(formula, position_frac, a, b, c):
+def get_descriptor(formula, position_frac, a, b, c, index):
     dis_matrix, adj_matrix = get_dis_adj_matrix(position_frac, a, b, c)
-    atom_matrix = get_atom_matrix(formula)
+    atom_matrix = get_atom_matrix(formula, index)
     # N: number of atoms in unit cell
     N = dis_matrix.shape[0]
     # the elements along the diagonal of the dis_matrix is zero.
@@ -99,8 +107,8 @@ def get_discriptor(formula, position_frac, a, b, c):
     # element-wise product
     M = np.multiply(adj_matrix, 1 / dis_matrix ** 2)
     T = np.multiply(M, atom_matrix)
-    discriptor = np.sum(T)
-    return discriptor
+    descriptor = np.sum(T)
+    return descriptor
 
 
 def main():
@@ -118,21 +126,53 @@ def main():
         a = float(material[3])
         b = float(material[4])
         c = float(material[5])
-        discriptor = get_discriptor(formula, position_frac, a, b, c)
+        descriptor = get_descriptor(formula, position_frac, a, b, c)
         # print(i)
-        print(discriptor)
+        print(descriptor)
 
-def get_atom_related_properties(material):
+
+def get_atom_related_properties(formula):
     # the data type of the input parameter is string
+    element, element_number = decompose_formula(formula)
+    sum = np.zeros((25,))
+    N = np.sum(element_number)
+    for i, ele in enumerate(element):
+        atom = Gen_atom.atom(ele)
+        ap = atom.get_property()
+        tmp = element_number[i] * ap
+        tmp = np.array(tmp)
+        sum = sum + tmp
+    return sum / N
 
 
-def concatenate_all_discriptor():
+def concatenate_all_descriptor():
     data_path = './data'
     train_data = np.load(os.path.join(data_path, 'train_data.npy'))
-    index = [-1,-3,-4,-5,-6,-7] #
-    crp_list = list(train_data[index])
-    crp = [float(i) for i in crp_list]
-    discriptor_vec =
+    ps = np.load(os.path.join(data_path, 'positions_fractional.npy'))
+    save_fp = os.path.join(data_path, 'train_version1.npy')
+    final_feature = []
+    for material in train_data:
+        formula = material[2]
+        # Return geometrical data describing the unit cell in the usual a,b,c,alpha,beta,gamma notation.
+        a = float(material[3])
+        b = float(material[4])
+        c = float(material[5])
+        position_frac = list(ps[i])[0]
+        index = [-1, -3, -4, -5, -6, -7]
+        crp_list = list(material[index])
+        # crystal related properties
+        crp = np.array([float(i) for i in crp_list])
+        # atom related properties
+        arp = get_atom_related_properties(formula)
+        # crystal structure fingerprint
+        descriptor_vec = []
+        for index in range(25):
+            descriptor = get_descriptor(formula, position_frac, a, b, c, index)
+            descriptor_vec.append(descriptor)
+        descriptor_vec = np.array(descriptor_vec)
+        feature = np.concatenate((crp, arp, descriptor_vec), axis=0)
+        final_feature.append(feature)
+    np.save(save_fp, final_feature)
 
 
 def get_dis_adj_matrix_error_edition(position_frac, a, b, c):

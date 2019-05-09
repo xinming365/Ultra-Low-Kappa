@@ -502,5 +502,7 @@ if __name__ == '__main__':
     print(at.get_radii())
     ats = [atom("Al"),atom("Cr")]
     print(ats[1].get_radii())
+    print(at.get_property())
+
 
 

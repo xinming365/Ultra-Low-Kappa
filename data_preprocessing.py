@@ -114,5 +114,3 @@ class nspeices_statistics:
             plt.text(a, b + 0.05, '%.0f' % b, ha='center', va='bottom', fontsize=9, fontproperties="Times New Roman")
         plt.savefig('F:\WORK\AFLOW\data/fig/nspecies_stastics.png', dpi=300)
         plt.show()
-
-def  preprocess_train_data():

@@ -3,8 +3,8 @@ from aflow import *
 import os
 import Gen_atom
 import re
-
-
+import copy
+PROPERTY_NUMBER = 25
 def find_min_nonzero(array):
     nonzero_array = array[np.nonzero(array)]
     min_value = nonzero_array[np.argmin(nonzero_array)]
@@ -15,17 +15,18 @@ def find_min_nonzero(array):
 def decompose_formula(formula):
     element = re.findall(r'[A-Za-z]+', formula)
     element_number = re.findall(r'(\d+)', formula)
-    element_number = [float(i) for i in element_number]
+    element_number = [int(i) for i in element_number]
     return element, element_number
 
 
 def expand_cell(position_frac, a, b, c, n_a, n_b, n_c):
     N = position_frac.shape[0]  # number of atoms
+    tmp = copy.copy(position_frac)
     # expand the unit cell. n_a,n_b and n_c represent the number of repetitions along a,b,c axis.
-    position_frac[:, 0] = (position_frac[:, 0] + (n_a - 1) * np.ones(N)) * a
-    position_frac[:, 1] = (position_frac[:, 1] + (n_b - 1) * np.ones(N)) * b
-    position_frac[:, 2] = (position_frac[:, 2] + (n_c - 1) * np.ones(N)) * c
-    return position_frac
+    tmp[:, 0] = (position_frac[:, 0] + (n_a - 1) * np.ones(N)) * a
+    tmp[:, 1] = (position_frac[:, 1] + (n_b - 1) * np.ones(N)) * b
+    tmp[:, 2] = (position_frac[:, 2] + (n_c - 1) * np.ones(N)) * c
+    return tmp
 
 
 def find_min_dis(array_x, array_y):
@@ -111,37 +112,21 @@ def get_descriptor(formula, position_frac, a, b, c, index):
     return descriptor
 
 
-def main():
-    data_path = './data'
-    train_data = np.load(os.path.join(data_path, 'train_data.npy'))
-    ps = np.load(os.path.join(data_path, 'positions_fractional.npy'))
-    for i, material in enumerate(train_data):
-        # get the number of atoms of the material
-        N = material[-4]
-        # get the position_frac of the material. And the shape is (N,3)
-        position_frac = list(ps[i])[0]
-        # get the chemical formula
-        formula = material[2]
-        # Return geometrical data describing the unit cell in the usual a,b,c,alpha,beta,gamma notation.
-        a = float(material[3])
-        b = float(material[4])
-        c = float(material[5])
-        descriptor = get_descriptor(formula, position_frac, a, b, c)
-        # print(i)
-        print(descriptor)
-
 
 def get_atom_related_properties(formula):
     # the data type of the input parameter is string
     element, element_number = decompose_formula(formula)
-    sum = np.zeros((25,))
+    sum = np.zeros((PROPERTY_NUMBER,))
     N = np.sum(element_number)
     for i, ele in enumerate(element):
         atom = Gen_atom.atom(ele)
-        ap = atom.get_property()
-        tmp = element_number[i] * ap
-        tmp = np.array(tmp)
-        sum = sum + tmp
+        try:
+            ap = atom.get_property()
+            tmp = element_number[i] * np.array(ap)
+            sum = sum + tmp
+        except AttributeError:
+            print("No such property!")
+
     return sum / N
 
 
@@ -149,9 +134,10 @@ def concatenate_all_descriptor():
     data_path = './data'
     train_data = np.load(os.path.join(data_path, 'train_data.npy'))
     ps = np.load(os.path.join(data_path, 'positions_fractional.npy'))
-    save_fp = os.path.join(data_path, 'train_version1.npy')
+    save_fp = os.path.join(data_path, 'train_version_1.npy')
     final_feature = []
-    for material in train_data:
+    for i,material in enumerate(train_data):
+        print(i)
         formula = material[2]
         # Return geometrical data describing the unit cell in the usual a,b,c,alpha,beta,gamma notation.
         a = float(material[3])
@@ -166,7 +152,7 @@ def concatenate_all_descriptor():
         arp = get_atom_related_properties(formula)
         # crystal structure fingerprint
         descriptor_vec = []
-        for index in range(25):
+        for index in range(PROPERTY_NUMBER):
             descriptor = get_descriptor(formula, position_frac, a, b, c, index)
             descriptor_vec.append(descriptor)
         descriptor_vec = np.array(descriptor_vec)
@@ -204,4 +190,4 @@ def get_dis_adj_matrix_error_edition(position_frac, a, b, c):
 
 
 if __name__ == '__main__':
-    main()
+    concatenate_all_descriptor()

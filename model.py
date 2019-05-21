@@ -92,7 +92,7 @@ def cnn_model(features,labels,mode):
     eval_metric_ops = {"accuracy":tf.metrics.mean_absolute_error(labels=labels,predictions=predictions)}
     return tf.estimator.EstimatorSpec(mode=mode,loss=loss,eval_metric_ops=eval_metric_ops)
 
-def cnn_predict()
+def cnn_predict():
     train_data = []
     train_labels = y_train
 
@@ -112,6 +112,8 @@ def cnn_predict()
     eval_results = cnn_predict.evaluate(input_fn=eval_input_fn)
     print(eval_results)
 
+if __name__ =='__main__':
+    cnn_predict()
 
 
 

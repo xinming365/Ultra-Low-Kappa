@@ -161,6 +161,25 @@ def concatenate_all_descriptor():
     np.save(save_fp, final_feature)
 
 
+def save_dis_matrix():
+    data_path = './data'
+    train_data = np.load(os.path.join(data_path, 'train_data.npy'))
+    ps = np.load(os.path.join(data_path, 'positions_fractional.npy'))
+    save_fp = os.path.join(data_path, 'train_version_2.npy')
+    dis_feature = []
+    for i, material in enumerate(train_data):
+        print(i)
+        # formula = material[2]
+        # Return geometrical data describing the unit cell in the usual a,b,c,alpha,beta,gamma notation.
+        a = float(material[3])
+        b = float(material[4])
+        c = float(material[5])
+        position_frac = list(ps[i])[0]
+        dis_matrix, adj_matrix = get_dis_adj_matrix(position_frac, a, b, c)
+        dis_feature.append(dis_matrix)
+    np.save(save_fp,dis_feature)
+
+
 def get_dis_adj_matrix_error_edition(position_frac, a, b, c):
     N = position_frac.shape[0]  # number of atoms
     # coordinate transformation
@@ -190,4 +209,5 @@ def get_dis_adj_matrix_error_edition(position_frac, a, b, c):
 
 
 if __name__ == '__main__':
-    concatenate_all_descriptor()
+    # concatenate_all_descriptor()
+    save_dis_matrix()

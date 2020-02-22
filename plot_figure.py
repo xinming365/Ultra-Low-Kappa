@@ -12,6 +12,7 @@ import matplotlib.gridspec as gridspec
 import seaborn as sns
 from matplotlib.font_manager import FontProperties
 from analysis import significance_analysis
+import pandas as pd
 
 left_limit = 0
 right_limit = 300
@@ -236,12 +237,53 @@ def tc_barchart():
     # plt.xticks(x,labels,rotation=20)
     ax.tick_params(axis='y', labelsize=10)
     plt.tick_params(axis='x', labelsize=16)
-    SAVE = True
+    # plt.show()
+    SAVE = False
     if SAVE:
-        plt.savefig('./fig/contrast2.eps', bbox_inches='tight')
+        plt.savefig('./fig/contrast2.png', bbox_inches='tight')
     plt.show()
 
 
+def tc_barchart_II():
+    labels = ['All categories', '-Crystal part', '-CW', '-Structure', '-Statistical part', 'Crystal part', 'CW', 'Structure',
+              'Statistical part', 'Crystal + CW']
+    pd.read_csv(open('./result/descriptors_analysis.csv','r'))
+
+    xgboost_result = [2.24, 2.52, 2.93, 2.91, 2.23, 3.84, 3.41, 4.09, 4.15, 2.13]
+    krr_result = [2.47, 2.83, 3.33, 2.54, 2.28, 4.50, 3.53, 4.40, 4.33, 2.35]
+    svr_result = [2.57, 2.68, 3.56, 2.55, 2.66, 4.33, 3.63, 4.65, 4.47, 2.66]
+    dnn_result = [2.26, 2.34, 2.91, 2.46, 2.34, 4.06, 3.51, 4.07, 4.28, 2.27]
+
+    x = np.arange(len(labels))
+    width = 0.15
+    ymajorLocator = MultipleLocator(base=1)
+    text_size=23
+
+    fig, ax = plt.subplots(dpi=300)
+    rects1 = ax.bar(x - 2 * width, height=svr_result, width=width, label='SVR', edgecolor='k', linewidth=0.3,
+                    alpha=0.85)
+    rects2 = ax.bar(x - width, height=krr_result, width=width, label='KRR', edgecolor='k', linewidth=0.3, alpha=0.85)
+    rects3 = ax.bar(x, height=xgboost_result, width=width, label='XGBoost', edgecolor='k', linewidth=0.3, alpha=0.85)
+    rects4 = ax.bar(x + width, height=dnn_result, width=width, label='FC', edgecolor='k', linewidth=0.3, alpha=0.85,
+                    color='brown')
+
+    ax.set_ylabel('MAE of $\kappa$ (W/mK)', fontproperties='Times New Roman', size=20)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontproperties='Times New Roman'
+                       , rotation=20)
+    ax.yaxis.set_major_locator(ymajorLocator)
+    ax.set_ylim(bottom=0, top=5.5)
+    ax.axhline(y=2.24, ls='-.', color='k', alpha=0.8, linewidth=0.6)
+    ax.legend(fontsize=16)
+
+    fig.set_size_inches(18, 4)
+    plt.tick_params(axis='x', length=0)
+    plt.tick_params(axis='y', direction='in')
+    # plt.xticks(x,labels,rotation=20)
+    ax.tick_params(axis='y', labelsize=text_size)
+    plt.tick_params(axis='x', labelsize=text_size)
+    plt.savefig('./fig/fig1.eps', bbox_inches='tight')
+    plt.show()
 
 
 def get_importance_llist(type):
@@ -538,8 +580,9 @@ if __name__ == '__main__':
     # plot_nspecies(save=False)
     # tc_hist()
     # tc_barchart()
+    tc_barchart_II()
     # pca()
-    plot_feature_importance()
+    # plot_feature_importance()
 
     # plot_table(3)
     #

@@ -5,6 +5,7 @@ import re
 import copy
 from Gen_atom import atomic_dict, lattice_dict
 import json
+import csv
 
 PROPERTY_NUMBER = 25
 
@@ -17,8 +18,18 @@ def find_min_nonzero(array):
 
 
 def decompose_formula(formula):
-    # the standard formula format is like 'XnYnZn', such as Pb1Se1.
-    # X/Y/Z is the element. n is the number of element.
+    """ Return the decomposed elements from the formula.
+
+    The format of the formula must be standard, which should be
+    like 'Xn1Yn2Zn3' where 'X/Y/Z' is the element, the n1/n2/n3 is the number
+    of element, and n1+n2+n3=N (number of atoms in unit cell). such as Pb1Se1.
+
+    Args:
+        formula: a string representing the formula of the material.
+    Returns:
+        A list of elements.
+        A list of numbers.
+    """
     element = re.findall(r'[A-Za-z]+', formula)
     element_number = re.findall(r'(\d+)', formula)
     element_number = [int(i) for i in element_number]
@@ -26,8 +37,18 @@ def decompose_formula(formula):
 
 
 def decompose_formula_II(formula):
-    # the formula format 'XnYnZn', when n=1, the n is omitted.
-    # like PbSe instead of Pb1Se1
+    """ Return the decomposed elements from the formula.
+
+    The format of the formula is more readable for people. The difference
+    from the 'decompose_formula' function is that the the number of n is omitted
+    when n=1 in the formula of 'XnYnZn', such as PbSe instead of Pb1Se1
+
+    Args:
+        formula: a string representing the formula of the material.
+    Returns:
+        A list of elements.
+        A list of numbers.
+    """
     namelist = []
     numlist = []
     ccomps = formula
@@ -74,24 +95,37 @@ def decompose_formula_II(formula):
 
 
 def transform_format(formula):
+    """ Transform the format of the formula from the brief form into
+    the standard form.
+
+    Args:
+        formula: a string representing the formula of the material.
+    Returns:
+        A string of formula in standard form.
+    """
     ele_list, num_list = decompose_formula_II(formula)
-    formula_2=''
+    formula_2 = ''
     for index, ele in enumerate(ele_list):
         tmp = ele + str(int(num_list[index]))
         formula_2 = formula_2 + tmp
     return formula_2
 
 
-def get_z(formula):
-    element, element_number = decompose_formula(formula)
-    N = np.sum(element_number)
-    z = 0
-    for i, ele in enumerate(element):
-        z = z + atomic_dict[ele] * element_number[i] / N
-    return z
-
-
 def expand_cell(position_frac, a, b, c, n_a, n_b, n_c):
+    """Expand the coordinates of the atom in the crystal unit cell
+    into a new ones in the supercell.
+
+    Args:
+        position_frac: an array with shape '(N, 3)'.
+        a: the length of lattice in a axis.
+        b: the length of lattice in b axis.
+        c: the length of lattice in c axis.
+        n_a: the number of repetitions along a axis.
+        n_b: the number of repetitions along b axis.
+        n_c: the number of repetitions along c axis
+    Returns:
+        An array with shape '(N ,3)'.
+    """
     N = position_frac.shape[0]  # number of atoms
     tmp = copy.copy(position_frac)
     # expand the unit cell. n_a,n_b and n_c represent the number of repetitions along a,b,c axis.
@@ -102,6 +136,14 @@ def expand_cell(position_frac, a, b, c, n_a, n_b, n_c):
 
 
 def find_min_dis(array_x, array_y):
+    """Find the minimum distance between two atoms.
+
+    Args:
+        array_x: an array with shape '(8, 3)'
+        array_y: an array with shape '(8, 3)'
+    Returns:
+        The value of the minimum distance between two atoms.
+    """
     n_equivalent = array_x.shape[0]
     min_ = []
     for i in range(n_equivalent):
@@ -114,6 +156,21 @@ def find_min_dis(array_x, array_y):
 
 
 def get_dis_adj_matrix(position_frac, a, b, c):
+    """Get the distance and adjacency matrix.
+
+    Given an array 'position_frac' with shape '(N, 3)', the distance and
+    adjacency matrix with shape '(N, N)' can be calculated. The lattice constants
+    of a, b, c must be supplied.
+
+    Args:
+        position_frac: an array with shape '(N, 3)'.
+        a: the length of lattice in a axis.
+        b: the length of lattice in b axis.
+        c: the length of lattice in c axis.
+    Returns:
+        An array with shape '(N, N)'
+        An array with shape '(N, N)'
+    """
     N = position_frac.shape[0]  # number of atoms
     # expand the unit cell into 2*2*2 taking into account the periodicity along three axes.
     p1 = expand_cell(position_frac, a, b, c, 1, 1, 1)
@@ -142,8 +199,20 @@ def get_dis_adj_matrix(position_frac, a, b, c):
 
 
 def get_atom_matrix(formula, index):
-    # the formula in input parameters is the chemical formula of materials , like "Ag4O2".
-    # the index is the index of property list .
+    """Get the atomic matrix with shape '(N, N)'.
+
+    The Q represent the elemental property, which is related to specific
+     reference property. Qij=|Qi-Qj| and Q is the atom matrix. When i=j or
+     element i = element j, the Qij should be 0.
+
+    Args:
+        formula: a string representing the chemical formula of the material, like "Ag4O2".
+        index: a number. The 'index' is the index among the 25 features, where
+         the value must be a number between [0, 25).
+    Returns:
+        An array with shape '(N, N)'
+        An array with shape '(N, N)'
+    """
     element, element_number = decompose_formula(formula)
     # N : number of atoms in unit cell
     N = np.sum(element_number)
@@ -170,7 +239,20 @@ def get_atom_matrix(formula, index):
     return atom_matrix_1, atom_matrix_2
 
 
-def get_descriptor(formula, position_frac, a, b, c, index):
+def get_qf_descriptors(formula, position_frac, a, b, c, index):
+    """Get the qf descriptors, which is called crystal structure fingerprints.
+
+    Args:
+        formula: a string representing the chemical formula of the material.
+        position_frac: an array with shape '(N, 3)'.
+        a: the length of lattice in a axis.
+        b: the length of lattice in b axis.
+        c: the length of lattice in c axis.
+        index: a number between [0, 25).
+
+    Returns:
+        A number.
+    """
     dis_matrix, adj_matrix = get_dis_adj_matrix(position_frac, a, b, c)
     atom_matrix, atom_matrix_2 = get_atom_matrix(formula, index)
     # N: number of atoms in unit cell
@@ -186,6 +268,33 @@ def get_descriptor(formula, position_frac, a, b, c, index):
 
 
 def get_atom_related_properties(formula):
+    """Get the compositional weighted (CW) properties.
+
+    The atomic properties include 25 features for each element. They are
+    atomic number, valence electrons,
+    atomic mass  group, period, electronegativity,
+    Mendeleev number, global hardness,
+    the orbital exponent of Slater-type orbitals, polarizability,
+    electrophilicity indices, van der Waals radii, covalent radii,
+    absolute radii, electron affinity, molar volume,
+    first ionization energy, boiling point, melting point,
+    thermal conductivity, atomization enthalpy, fusion enthalpy,
+    vaporization enthalpy, binding energy, atomic density.
+
+    Args:
+        formula: a string representing the formula of the material in standard form.
+    Returns:
+        A list with shape '(25,)' of the CW properties.
+    """
+    var = ['atomic number', 'Mendeleev number', 'period', 'group',
+           'atomic mass', 'atomic density', 'valence electrons',
+           'absolute radii', 'covalent radii', 'van der Waals radii', 'electron affinity',
+           'electronegativity',
+           'first ionization energy', 'boiling point', 'melting point', 'molar volume',
+           'thermal conductivity', 'the orbital exponent of Slater-type orbitals',
+           'polarizability', 'global hardness', 'electrophilicity indices',
+           'atomization enthalpy', 'fusion enthalpy',
+           'vaporization enthalpy', 'binding energy']
     # the data type of the input parameter is string
     element, element_number = decompose_formula(formula)
     sum = np.zeros((PROPERTY_NUMBER,))
@@ -198,36 +307,30 @@ def get_atom_related_properties(formula):
             sum = sum + tmp
         except AttributeError:
             print("No such property!")
-
     return sum / N
 
 
-def save_dis_matrix():
-    data_path = './data'
-    train_data = np.load(os.path.join(data_path, 'train_data.npy'))
-    ps = np.load(os.path.join(data_path, 'positions_fractional.npy'))
-    save_fp = os.path.join(data_path, 'train_version_2.npz')
-    dis_feature = []
-    for i, material in enumerate(train_data):
-        print(i)
-        # formula = material[2]
-        # Return geometrical data describing the unit cell in the usual a,b,c,alpha,beta,gamma notation.
-        a = float(material[3])
-        b = float(material[4])
-        c = float(material[5])
-        position_frac = list(ps[i])[0]
-        dis_matrix, adj_matrix = get_dis_adj_matrix(position_frac, a, b, c)
-        # dis_matrix = np.reshape(dis_matrix,(1, dis_matrix.shape[0],dis_matrix.shape[1]))
-        dis_feature.append(dis_matrix)
-    np.save(save_fp, dis_feature)
+def statistics(x, default=True):
+    """Get the statistical properties, including the mean,
+     min, max, std, range, sum.
 
-
-def statistics(x):
+    Args:
+        x: a matrix or an array.
+        default: True/False. The True means the minimum value of x.
+        The False means the non-zero minimum value of x because the
+        min value of the dis_matrix/adj_matrix must be zero.
+    Returns:
+        A list of the statistical properties.
+     """
     max = np.max(x)
-    # attention: the min element in the dis_matrix/adj_matrix must be zero. we need to
-    # find the non-min value.
     flat_x = x.flatten()
-    min = flat_x[find_min_nonzero(flat_x)]
+    if default:
+        min = np.min(flat_x)
+    else:
+        if np.all(flat_x == 0):
+            min = np.min(flat_x)
+        else:
+            min = flat_x[find_min_nonzero(flat_x)]
     range = max - min
     mean = np.mean(x)
     std = np.std(flat_x)
@@ -235,35 +338,18 @@ def statistics(x):
     return [mean, min, max, std, range, sum]
 
 
-def save_structure():
-    data_path = './data'
-    train_data = np.load(os.path.join(data_path, 'train_data.npy'))
-    ps = np.load(os.path.join(data_path, 'positions_fractional.npy'))
-    save_fp = os.path.join(data_path, 'train_version_4.npy')
-    structure_feature = []
-    for i, material in enumerate(train_data):
-        print(i)
-        # formula = material[2]
-        # Return geometrical data describing the unit cell in the usual a,b,c,alpha,beta,gamma notation.
-        a = float(material[3])
-        b = float(material[4])
-        c = float(material[5])
-        position_frac = list(ps[i])[0]
-        dis_matrix, adj_matrix = get_dis_adj_matrix(position_frac, a, b, c)
-        # print(dis_matrix,adj_matrix)
-        x = statistics(dis_matrix)
-        y = statistics(adj_matrix)
-        z = np.concatenate([x, y])
-        print(z)
-        structure_feature.append(z)
-    np.save(save_fp, structure_feature)
+def concatenate_all_descriptors():
+    """Concatenate all descriptors and save the processed data for training models.
 
-
-def concatenate_all_descriptor():
-    data_path = './data'
-    train_data = np.load(os.path.join(data_path, 'train_data.npy'))
+    Args:
+        None.
+    Returns:
+        None
+    """
+    data_path = './data/resources'
+    train_data = np.load(os.path.join(data_path, 'raw_data.npy'))
     ps = np.load(os.path.join(data_path, 'positions_fractional.npy'))
-    save_fp = os.path.join(data_path, 'train_version_1.npy')
+    save_fp = os.path.join(data_path, 'test2.npy')
     final_feature = []
     for i, material in enumerate(train_data):
         print(i)
@@ -273,99 +359,105 @@ def concatenate_all_descriptor():
         b = float(material[4])
         c = float(material[5])
         position_frac = list(ps[i])[0]
-        # spacegroup, nspecies, natoms, volume_atom, volume_cell, density
-        index = [-1, -3, -4, -5, -6, -7]
-        crp_list = list(material[index])
         # crystal related properties
+        # lattice system, spacegroup, nspecies, natoms, volume_atom,
+        # volume_cell, density
+        index = [-1, -3, -4, -5, -6, -7]
+        lattice_system = material[-2].strip()
+        ls = lattice_dict[lattice_system]
+        crp_list = list(material[index])
+        crp_list.insert(0, ls)
         crp = np.array([float(i) for i in crp_list])
+
         # atom related properties
-        arp = get_atom_related_properties(formula)
+        cwp = get_atom_related_properties(formula)
         # crystal structure fingerprint
         descriptor_vec = []
         for index in range(PROPERTY_NUMBER):
-            descriptor = get_descriptor(formula, position_frac, a, b, c, index)
+            descriptor = get_qf_descriptors(formula, position_frac, a, b, c, index)
             descriptor_vec.append(descriptor)
-        descriptor_vec = np.array(descriptor_vec)
-        feature = np.concatenate((crp, arp, descriptor_vec), axis=0)
+        qf = np.array(descriptor_vec)
+
+        # statistical properties
+        dis_matrix, adj_matrix = get_dis_adj_matrix(position_frac, a, b, c)
+        statistics_arp_qf = statistics(np.concatenate((cwp, qf)))
+        structure_dis = statistics(dis_matrix, default=False)
+        structure_adj = statistics(adj_matrix, default=False)
+        sp = np.concatenate((statistics_arp_qf, structure_dis, structure_adj))
+
+        feature = np.concatenate((crp, cwp, qf, sp), axis=0)
         final_feature.append(feature)
     np.save(save_fp, final_feature)
 
 
-def add_new_statistical_feature():
-    data_path = './data'
-    train_data = np.load(os.path.join(data_path, 'train_version_1.npy'))
-    save_fp = os.path.join(data_path, 'train_version_2.npy')
-    final_feature = []
-    for i, material in enumerate(train_data):
-        mean = np.mean(material)
-        min = np.min(material)
-        max = np.max(material)
-        std = np.std(material)
-        range = max - min
-        statistical_feature = [min, max, range, mean, std]
-        new_feature = np.concatenate((material, statistical_feature))
-        final_feature.append(new_feature)
-    np.save(save_fp, final_feature)
-
-
-def to_2D():
-    data_path = './data'
-    raw_train_data = np.load(os.path.join(data_path, 'train_data.npy'))
-    train_data = np.load(os.path.join(data_path, 'train_version_1.npy'))
-    save_fp = os.path.join(data_path, 'train_version_3.npy')
-    num_total_data = train_data.shape[0]
-    final_feature = []
-    for i, material in enumerate(train_data):
-        properties = material[6:]
-        mean = np.mean(properties)
-        min = np.min(properties)
-        max = np.max(properties)
-        range = max - min
-        std = np.std(properties)
-        sum = np.sum(properties)
-        formula = raw_train_data[i][2]
-        z = get_z(formula)
-        lattice_system = raw_train_data[i][-2].strip()
-        ls = lattice_dict[lattice_system]
-        mat_list = list(material)
-        mat_list.insert(0, ls)
-        mat_list.insert(0, z)
-        statistical_feature = [min, max, range, sum, mean, std]
-        new_feature = np.concatenate((mat_list, statistical_feature))
-        new_feature = new_feature.reshape(8, 8)
-        final_feature.append(new_feature)
-    final_feature = np.reshape(final_feature, (num_total_data, 8, 8, 1))
-    print(final_feature.shape)
-    np.save(save_fp, final_feature)
-
-
-def concatenate_2D_with_structure_feature():
-    data_path = './data'
-    raw_train_data = np.load(os.path.join(data_path, 'train_data.npy'))
-    train_data = np.load(os.path.join(data_path, 'train_version_1.npy'))
-    structure_data = np.load(os.path.join(data_path, 'train_version_4.npy'))
-    save_fp = os.path.join(data_path, 'train_version_5.npy')
-    num_total_data = train_data.shape[0]
-    final_feature = []
-    for i, material in enumerate(train_data):
-        properties = material[6:]
-        mean = np.mean(properties)
-        min = np.min(properties)
-        max = np.max(properties)
-        range = max - min
-        std = np.std(properties)
-        sum = np.sum(properties)
-        formula = raw_train_data[i][2]
-        lattice_system = raw_train_data[i][-2].strip()
-        ls = lattice_dict[lattice_system]
-        mat_list = list(material)
-        mat_list.insert(0, ls)
-        statistical_feature = [min, max, range, sum, mean, std]
-        structure_feature = structure_data[i]
-        new_feature = np.concatenate((mat_list, statistical_feature, structure_feature))
-        final_feature.append(new_feature)
-    print(len(final_feature))
-    np.save(save_fp, final_feature)
+def save_csv():
+    """The 'csv' format is kept while the 'npy' format is deleted for the training data.
+    Args:
+        None.
+    Returns:
+        None
+    """
+    label_1 = ['lattice system', 'spacegroup', 'nspecies', 'natoms', 'volume_atom',
+               'volume_cell', 'density']
+    label_2 = ['CW atomic number', 'CW Mendeleev number',
+               'CW period', 'CW group', 'CW atomic mass', 'CW atomic density',
+               'CW valence electrons', 'CW absolute radii', 'CW covalent radii',
+               'CW van der Waals radii', 'CW electron affinity', 'CW electronegativity',
+               'CW first ionization energy', 'CW boiling point', 'CW melting point',
+               'CW molar volume', 'CW thermal conductivity',
+               'CW the orbital exponent of Slater-type orbitals',
+               'CW polarizability', 'CW global hardness', 'CW electrophilicity indices',
+               'CW atomization enthalpy', 'CW fusion enthalpy', 'CW vaporization enthalpy',
+               'CW binding energy']
+    label_3 = ['qf atomic number',
+                'qf Mendeleev number',
+                'qf period',
+                'qf group',
+                'qf atomic mass',
+                'qf atomic density',
+                'qf valence electrons',
+                'qf absolute radii',
+                'qf covalent radii',
+                'qf van der Waals radii',
+                'qf electron affinity',
+                'qf electronegativity',
+                'qf first ionization energy',
+                'qf boiling point',
+                'qf melting point',
+                'qf molar volume',
+                'qf thermal conductivity',
+                'qf the orbital exponent of Slater-type orbitals',
+                'qf polarizability',
+                'qf global hardness',
+                'qf electrophilicity indices',
+                'qf atomization enthalpy',
+                'qf fusion enthalpy',
+                'qf vaporization enthalpy',
+                'qf binding energy']
+    label_4 = ['mean of CW+qf',
+               'min of CW+qf',
+               'max of CW+qf',
+               'std of CW+qf',
+               'range of CW+qf',
+               'sum of CW+qf',
+               'mean of dis_matrix',
+               'min of dis_matrix',
+               'max of dis_matrix',
+               'std of dis_matrix',
+               'range of dis_matrix',
+               'sum of dis_matrix',
+               'mean of adj_matrix',
+               'min of adj_matrix',
+               'max of adj_matrix',
+               'std of adj_matrix',
+               'range of adj_matrix',
+               'sum of adj_matrix']
+    label= np.concatenate((label_1, label_2, label_3, label_4))
+    tst = np.load('./data/resources/test2.npy')
+    with open('./data/td.2020.1.29.csv', 'w') as fo:
+        csv_writer = csv.writer(fo)
+        csv_writer.writerow(label)
+        csv_writer.writerows(tst)
 
 
 def save_tc_database():
@@ -431,8 +523,7 @@ def save_crystal_property():
                  'natoms': float(v['natoms']), 'volume_atom': float(v['volume_atom']),
                  'volume_cell': float(v['volume_cell']), 'density': float(v['density'])}
         dict1[v['auid']] = dict2
-    json.dump(dict1,open('./data/resources/crystal_property.json','w'))
-
+    json.dump(dict1, open('./data/resources/crystal_property.json', 'w'))
 
 
 def formula_database():
@@ -444,17 +535,15 @@ def formula_database():
 
 
 if __name__ == '__main__':
-    # concatenate_all_descriptor()
+    # concatenate_all_descriptors()
+    save_csv()
     # add_new_statistical_feature()
     # to_crystal_image()
-    # train_data = np.load('./data/train_data.npy')
+    # train_data = np.load('./data/raw_data.npy')
     # formula = train_data
-    # get_z(formula)
-    # to_2D()
-    # concatenate_2D_with_structure_feature()
-    save_tc_database()
+    # save_tc_database()
     # data_path = './data'
-    # train_data = np.load(os.path.join(data_path, 'train_data.npy'))
+    # train_data = np.load(os.path.join(data_path, 'raw_data.npy'))
     # num_total_data = train_data.shape[0]
     # ps = np.load(os.path.join(data_path, 'positions_fractional.npy'))
     # save_fp = os.path.join(data_path, 'train_version_4.npy')
@@ -475,4 +564,5 @@ if __name__ == '__main__':
     # spp = SpatialPyramidPooling([1, 2])
     # outputs = spp.call(image_matrix)
     # print(outputs)
-    save_tc_database()
+    # save_tc_database()
+

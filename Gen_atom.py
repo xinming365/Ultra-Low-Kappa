@@ -436,7 +436,6 @@ class atom:
             print("There is no atomizationEnthalpy data!")
             return np.mean(atomizationEnthalpy)
 
-
     def get_fusionEnthalpy(self):
         return fusionEnthalpy[self.atomicNum]
 

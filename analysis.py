@@ -1,25 +1,76 @@
 import numpy as np
+import pandas as pd
 import pickle
-from sklearn.model_selection import train_test_split
-from util import split_descriptor, metric, mae,rmse
 import os
-from xgboost_model_tc import xgboost_model
-from KRR_SVR import transform_data, KrrSvr
-from FCN_model import DnnModel
-
+import csv
+from util import load_and_split_descriptor, metric, mae, rmse
+from model import transform_data, read_label
+from model import svr, krr, fc, xgb_model, KappaModel
 
 
 def read_data():
+    x = pd.read_csv(open('./data/td.2020.1.29.csv', 'r')).to_numpy()
     i = 9
-    train_data = split_descriptor(category=i)
-    labels = np.load(os.path.join('./data', 'labels.npy'))
+    train_data = load_and_split_descriptor(x, category=i)
+    labels = pd.read_csv(os.path.join('./data', 'labels.2020.1.29.csv')).to_numpy()
     label = np.log(labels[:, 0])
     return train_data, label
 
 
-def split_data(train_data, label):
-    X_train, X_test, y_train, y_test = train_test_split(train_data, label, test_size=0.1, random_state=4)
-    return X_train, y_train, X_test, y_test
+def descriptors_analysis():
+    """Make a comparison with different types of descriptors.
+
+    There are nine types of descriptors to test totally. -Crystal part, -CW,
+    -Structure, -Statistical part, Crystal part, CW, Structure, Statistical part,
+    Crystal+CW and All descriptor. ’-’ indicates the name of the hold-out feature
+     category and the descriptors are generated from the ensemble of the other three
+     categories.
+
+    Args:
+        None
+    Returns:
+        A numpy array with shape '(10, 4)'.
+    """
+    data_path = './data'
+    labels = pd.read_csv(os.path.join(data_path, 'labels.2020.1.29.csv')).to_numpy()
+    raw_train_data = pd.read_csv(os.path.join(data_path, 'td.2020.1.29.csv')).to_numpy()
+    result = []
+    for descriptors_i in range(10):
+        new_train_data = load_and_split_descriptor(raw_train_data, descriptors_i)
+        length = new_train_data.shape[1]
+        t, l = read_label(new_train_data, labels, label_index=0)
+        MAEs_list = []
+        for i in range(4):
+            if i == 0:
+                epochs = 1
+                model = svr()
+                model_type = 'SVR'
+            elif i == 1:
+                epochs = 200
+                model = fc(length)
+                model_type = 'FC'
+            elif i == 2:
+                epochs = 1
+                model = krr()
+                model_type = 'KRR'
+            else:
+                epochs = 1
+                model = xgb_model()
+                model_type = 'XGBoost'
+            x_train, x_test, y_train, y_test = transform_data(t, l, 0.1, 4, model_type=model_type)
+            kappa_model = KappaModel(x_train, x_test, y_train, y_test)
+            kappa_model.train_model(model, epochs=epochs)
+            predict_train = kappa_model.predict(model, 'train')
+            predict_test = kappa_model.predict(model, 'test')
+
+            MAEs_train = mae(np.exp(y_train), np.exp(predict_train))
+            MAEs_test = mae(np.exp(y_test), np.exp(predict_test))
+            print(MAEs_test)
+
+            MAEs_list.append(MAEs_test)
+
+        result.append(MAEs_list)
+    return result
 
 
 def accuracy_of_ls():
@@ -55,36 +106,49 @@ def load_feature_importance():
     return feature_importance
 
 
-def train_on_partial_feature_2(model_type):
+def train_on_partial_feature(model_type):
+    """Train the ML models on some parts of the descriptors.
+
+    Args:
+        model_type: a string.
+            'model_type' designate which model to be used to train a ML model, which
+            must belong to one of 'fc', 'xgboost', 'krr', and 'svr'.
+    Returns:
+        A list with shape '(4,)'. The elements of the list are 'RMSE', 'the minimum of
+        the RMSE list', 'the maximum of the RMSE list', and 'the standard deviation of the
+        RMSE list'.
+    """
     train_data, label = read_data()
     length = len(train_data[0])
     cut_index = np.arange(length)
     result = []
     for i in range(1, length + 1):
-        a=0
+        a = 0
         rmse_list = []
         while a < 20:
-            a+=1
+            a += 1
             np.random.shuffle(cut_index)
             new_train_data = np.copy(train_data[:, cut_index[:i]])
             x_train, x_test, y_train, y_test = transform_data(new_train_data, label, 0.1, 4)
-            if model_type=='fc':
-                dnn_model = DnnModel(x_train, y_train, x_test, y_test)
-                train_y_pred, test_y_pred, score = dnn_model.evaluate()
-                rmse_metric = rmse(y_test, test_y_pred.flatten())
-                rmse_list.append(rmse_metric)
-            elif model_type=='xgboost':
-                result_list = xgboost_model(new_train_data,label)
-                rmse_metric = result_list[3]
-                rmse_list.append(rmse_metric)
+            km = KappaModel(x_train, x_test, y_train, y_test)
+            if model_type == 'fc':
+                model = fc()
+                epochs = 200
+            elif model_type == 'xgboost':
+                epochs = 1
+                model = xgb_model()
+            elif model_type == 'krr':
+                epochs = 1
+                model = krr()
+            elif model_type == 'svr':
+                epochs = 1
+                model = svr()
             else:
-                ml_model = KrrSvr(x_train, x_test, y_train)
-                if model_type=='krr':
-                    predict_train, predict_test = ml_model.krr()
-                if model_type=='svr':
-                    predict_train, predict_test = ml_model.svr()
-                rmse_metric = rmse(y_test, predict_test)
-                rmse_list.append(rmse_metric)
+                print('The model type must belong to [\'svr\', \'krr\', \'xgboost\', \'fc\']!')
+                km.train_model(model, epochs=epochs)
+            predict_test = km.predict(model, 'test')
+            rmse_metric = rmse(y_test, predict_test)
+            rmse_list.append(rmse_metric)
         y_rmse = np.mean(rmse_list)
         print(y_rmse)
         yerr_rmse_min = np.min(rmse_list)
@@ -94,43 +158,27 @@ def train_on_partial_feature_2(model_type):
     return result
 
 
-def train_on_partial_feature(sort=True):
-    feature_importance = load_feature_importance()
-    length = len(feature_importance)
-    result = []
-    if sort:
-        cut_index = np.argsort(feature_importance)
-    else:
-        cut_index = np.arange(length)
-    train_data, label = read_data()
-    for i in range(1, length+1):
-        new_train_data = np.copy(train_data[:, cut_index[:i]])
-        result_i = xgboost_model(new_train_data, label)
-        result.append(result_i)
-        print(result_i[0])
-    return result
-
-
 def significance_analysis():
     x = np.load('./data/trains/train_x.npy')
     y = np.load('./data/trains/train_y.npy')
-    model=pickle.load(open('./models/ptc_ab.pkl','rb'))
-    pk_list=[]
+    model = pickle.load(open('./models/ptc_ab.pkl', 'rb'))
+    pk_list = []
     for k in range(32):
-        sum=0
-        for i in [-0.2, -0.15,-0.1,-0.05,0.05,0.1,0.15]:
+        sum = 0
+        for i in [-0.2, -0.15, -0.1, -0.05, 0.05, 0.1, 0.15]:
             tmp = np.copy(x)
-            tmpp=np.copy(x)
-            tmp[:,k] = tmp[:,k]*(1+i)
-            tmpp[:,k]=tmp[:,k]*(1+i+0.05)
-            predict_y=model.predict(tmp)
-            predict_yy=model.predict(tmpp)
-            delta_ki = mae(predict_y,y)
-            delta_kii=mae(predict_yy,y)
-            sum=sum+np.abs((delta_kii-delta_ki))/delta_ki
-        pk=sum/7
+            tmpp = np.copy(x)
+            tmp[:, k] = tmp[:, k] * (1 + i)
+            tmpp[:, k] = tmp[:, k] * (1 + i + 0.05)
+            predict_y = model.predict(tmp)
+            predict_yy = model.predict(tmpp)
+            delta_ki = mae(predict_y, y)
+            delta_kii = mae(predict_yy, y)
+            sum = sum + np.abs((delta_kii - delta_ki)) / delta_ki
+        pk = sum / 7
         pk_list.append(pk)
     return pk_list
+
 
 if __name__ == '__main__':
     # accuracy_list = accuracy_of_ls()
@@ -141,12 +189,20 @@ if __name__ == '__main__':
     # model_type='svr'
     # model_type = 'xgboost'
     # model_type = 'krr'
-    model_type = 'fc'
-    result = train_on_partial_feature_2(model_type)
-    print(result)
+    # model_type = 'fc'
+    # result = train_on_partial_feature(model_type)
+    # print(result)
     # np.save('./result/accuracy/accuracy_partial_unsort_'+model_type+'.npy', result)
-    np.save('./result/accuracy/accuracy_partial_random_' + model_type + '.npy', result)
-
+    # np.save('./result/accuracy/accuracy_partial_random_' + model_type + '.npy', result)
+    result = descriptors_analysis()
+    with open('./result/descriptors_analysis.csv', 'w') as f:
+        csv_writer = csv.writer(f)
+        csv_writer.writerow(['', 'All descriptor', '-Crystal part', ' -CW',
+                             '-Structure', ' -Statistical part', 'Crystal part', 'CW',
+                             'Structure', 'Statistical part', 'Crystal+CW'])
+        result.insert(0, ['SVR', 'FC', 'KRR', 'XGBoost'])
+        result = np.transpose(result)
+        csv_writer.writerows(result)
 """
 1.0774072416661373
 0.9682947337113156

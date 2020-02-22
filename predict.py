@@ -194,6 +194,15 @@ def predict_exp_database():
 
 
 def predict_tc_database(model_name, save_result=True, save_descriptor=False):
+    """Predict the thermal conductivity in the 'ICSD' database.
+
+    Args:
+        model_name: str. the trained model.
+        save_result: bool.
+        save_descriptor: bool.
+    Returns:
+        An array of the predicted thermal conductivity.
+    """
     none_tc_db = json.load(open('./data/resources/auid_none_tc.json', 'r'))
     descriptor_final = []
     info_final = []
@@ -213,26 +222,21 @@ def predict_tc_database(model_name, save_result=True, save_descriptor=False):
     # scaler=pickle.load(file=open(os.path.join('./models','scaler_'+ model_name), 'rb'))
     # scaled_descriptor_final = scaler.transform(descriptor_final)
     # print(type(scaled_descriptor_final))
-
-    # optimized_Model = pickle.load(file=open('./models/ptc_ab.pkl', 'rb'))
     optimized_Model = pickle.load(file=open(os.path.join('./models', model_name), 'rb'))
     predict_tc_log = optimized_Model.predict(descriptor_final)
     predict_tc = np.exp(predict_tc_log)
-    print(predict_tc)
     # saved_result= np.concatenate((info_final, predict_tc),axis=1)
     if save_descriptor:
-        np.save('./data/train_icsd.npy', descriptor_final)
+        np.save('./data/icsd/train_icsd.npy', descriptor_final)
         # np.save('./data/scaled_train_icsd.npy',scaled_descriptor_final)
     if save_result:
-        np.save('./result/pred_tc_log.npy', predict_tc_log)
-        np.save('./result/pred_tc.npy', predict_tc)
+        np.save('./data/icsd/pred_tc.npy', predict_tc)
         # information of the auid and formula corresponding to the kappa
-        np.save('./result/pred_tc_with_info.npy', info_final)
+        np.save('./data/icsd/pred_tc_with_info.npy', info_final)
     return predict_tc
 
 
 if __name__ == '__main__':
-
     # predict_tc = predict_tc_database(model_name='ptc_ab.pkl', save_result=True, save_descriptor=False)
     def if_in_the_database(compound, source_type):
         # source_type: 0:auid_tc.json  1:auid_none_tc.json  2:icsd.json

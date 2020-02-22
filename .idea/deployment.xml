@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" serverName="www.osci.club">
+    <serverData>
+      <paths name="Copy of project-level server '166.111.26.46'">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_908" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="Copy of project-level server 'www.osci.club'">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_813" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="www.osci.club">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/pycharm_project_379" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>

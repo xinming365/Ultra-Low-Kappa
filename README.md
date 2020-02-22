@@ -19,7 +19,7 @@ data_path='./data'
 labels = pd.read_csv(os.path.join(data_path, 'labels.2020.1.29.csv')).to_numpy()
 raw_train_data = pd.read_csv(os.path.join(data_path, 'td.2020.1.29.csv')).to_numpy()
  ```
-In our work, the results with best performance of ML models are saved in the [result]() file. The following is an example to load *ptc_ab.pkl* model
+In our work, the results with best performance of ML models are saved in the [result](https://github.com/xinming365/Ultrow-Low-Kappa/tree/master/result) file. The following is an example to load *ptc_ab.pkl* model
 ```python
 import pickle
 with open('./models/ptc_ab.pkl', 'r') as f:

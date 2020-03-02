@@ -1,4 +1,4 @@
-# Ultrow-Low-Kappa: Identification of Crystalline Materials with Ultra-Low Thermal Conductivity Based on Machine Learning Study
+# Ultra-Low-Kappa: Identification of Crystalline Materials with Ultra-Low Thermal Conductivity Based on Machine Learning Study
 
 ## Introduction
 This repository represents the work we did for accelerating the search of low thermal conducvitiy materials in materials science.

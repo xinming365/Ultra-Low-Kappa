@@ -36,3 +36,28 @@ The ML models were developed using
 Other packages used in the work including
 * -[Pandas](https://pandas.pydata.org/)
 * -[Numpy](https://numpy.org/)
+
+## Installation
+```bash
+# python dependencies
+pip install -r requirements.txt
+
+# clone repo
+git clone https://github.com/xinming365/Ultra-Low-Kappa.git
+cd Ultra-Low-Kappa
+```
+
+## Citing the related works
+Please cite the related works in your publications if it helps your research:
+
+    @article{wang2020identi,
+    author = {Wang, Xinming and Zeng, Shuming and Wang, Zhuchi and Ni, Jun},
+    title = {Identification of Crystalline Materials with Ultra-Low Thermal Conductivity Based on Machine Learning Study},
+    journal = {The Journal of Physical Chemistry C},
+    volume = {124},
+    number = {16},
+    pages = {8488-8495},
+    year = {2020},
+    doi = {10.1021/acs.jpcc.9b11610},
+    URL = {https://doi.org/10.1021/acs.jpcc.9b11610}
+    }
